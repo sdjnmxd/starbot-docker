@@ -99,7 +99,6 @@ docker-compose up -d
 ## 支持架构
 
 - linux/amd64
-- linux/arm64（未经过测试，期待反馈）
 
 ## 常用命令
 
