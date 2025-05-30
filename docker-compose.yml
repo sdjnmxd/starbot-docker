@@ -6,12 +6,18 @@ services:
     volumes:
       - ./config:/app/config
     environment:
-      # Redis配置
-      - REDIS_HOST=${REDIS_HOST:-redis}  # 默认使用内部redis服务
+      # B站账号配置（必须）
+      - SESSDATA=${SESSDATA}
+      - BILI_JCT=${BILI_JCT}
+      - BUVID3=${BUVID3}
+      
+      # Mirai配置（必须）
+      - MIRAI_HOST=${MIRAI_HOST:-localhost}
+      - MIRAI_PORT=${MIRAI_PORT:-7827}
+      
+      # Redis配置（必须）
+      - REDIS_HOST=${REDIS_HOST:-localhost}
       - REDIS_PORT=${REDIS_PORT:-6379}
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}  # Redis密码，可选
-      - REDIS_DB=${REDIS_DB:-0}  # Redis数据库编号，可选
-      - REDIS_SSL=${REDIS_SSL:-false}  # 是否启用SSL连接，可选
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -24,27 +30,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
-    profiles:
-      - default  # 默认配置使用内部Redis
-
-  redis:
-    image: redis:latest
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "1"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    profiles:
-      - default  # 默认配置包含Redis服务
 
 volumes:
   redis_data:

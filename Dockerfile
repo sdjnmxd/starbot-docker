@@ -22,7 +22,6 @@ RUN chmod +x /healthcheck.sh
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制项目代码
-
 COPY . .
 
 # 设置环境变量
