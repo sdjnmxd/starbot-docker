@@ -3,6 +3,9 @@ FROM python:3.9-slim
 # 设置工作目录
 WORKDIR /app
 
+# 复制README和LICENSE文件
+COPY README.md LICENSE ./
+
 # 安装系统依赖
 RUN apt-get update && apt-get install -y \
     build-essential \
