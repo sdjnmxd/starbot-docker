@@ -5,7 +5,13 @@ on:
     - cron: '0 0 * * *'  # 每天UTC 00:00运行
   repository_dispatch:
     types: [upstream_release]  # 监听上游仓库的release
-  workflow_dispatch:  # 支持手动触发
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: '是否创建 Release'
+        type: boolean
+        default: false
+        required: true
 
 permissions:
   contents: write
@@ -164,7 +170,12 @@ jobs:
           enable-url-completion: true
 
       - name: Create Release
-        if: success() && github.event_name != 'workflow_dispatch'
+        if: |
+          success() && (
+            github.event_name == 'schedule' ||
+            github.event_name == 'repository_dispatch' ||
+            (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
+          )
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
