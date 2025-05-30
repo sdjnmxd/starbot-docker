@@ -49,8 +49,16 @@ jobs:
           
           LATEST_VERSION=$(echo "$PYPI_INFO" | jq -r '.info.version')
           RELEASE_DATE=$(echo "$PYPI_INFO" | jq -r --arg version "$LATEST_VERSION" '.releases[$version][0].upload_time')
-          RELEASE_URL="https://pypi.org/project/starbot-bilibili/$LATEST_VERSION/"
-          CHANGELOG=$(echo "$PYPI_INFO" | jq -r '.info.description')
+          
+          # 获取 GitHub Release 信息
+          if ! GITHUB_RELEASE=$(curl -sf "https://api.github.com/repos/${{ env.UPSTREAM_REPO }}/releases/latest"); then
+            echo "::warning::Failed to fetch GitHub Release information"
+            RELEASE_URL="https://pypi.org/project/starbot-bilibili/$LATEST_VERSION/"
+            CHANGELOG="未能获取更新说明，请查看 PyPI 发布页面了解详情。"
+          else
+            RELEASE_URL=$(echo "$GITHUB_RELEASE" | jq -r '.html_url')
+            CHANGELOG=$(echo "$GITHUB_RELEASE" | jq -r '.body')
+          fi
           
           # 获取 Docker Hub 当前版本（跳过 latest 标签）
           if ! CURRENT_VERSION=$(curl -sf "https://hub.docker.com/v2/repositories/${{ vars.DOCKERHUB_USERNAME }}/starbot/tags/" | \
@@ -194,7 +202,16 @@ jobs:
             
             - 版本号: ${{ needs.check-update.outputs.current_version }} -> ${{ needs.check-update.outputs.version }}
             - 发布时间: ${{ needs.check-update.outputs.release_date }}
-            - PyPI 链接: ${{ needs.check-update.outputs.release_url }}
+            - Release 链接: ${{ needs.check-update.outputs.release_url }}
+            
+            ## Docker 镜像
+            ```bash
+            # 最新版本
+            docker pull ${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            
+            # 或使用 latest 标签
+            docker pull ${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            ```
             
             ## 更新说明
             
