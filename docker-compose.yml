@@ -5,12 +5,13 @@ services:
     image: sdjnmxd/starbot:latest
     volumes:
       - ./config:/app/config
-    depends_on:
-      redis:
-        condition: service_healthy
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      # Redis配置
+      - REDIS_HOST=${REDIS_HOST:-redis}  # 默认使用内部redis服务
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}  # Redis密码，可选
+      - REDIS_DB=${REDIS_DB:-0}  # Redis数据库编号，可选
+      - REDIS_SSL=${REDIS_SSL:-false}  # 是否启用SSL连接，可选
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -23,6 +24,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
+    profiles:
+      - default  # 默认配置使用内部Redis
 
   redis:
     image: redis:latest
@@ -40,6 +43,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+    profiles:
+      - default  # 默认配置包含Redis服务
 
 volumes:
   redis_data:

@@ -18,6 +18,36 @@ docker-compose up -d
 - Docker
 - Docker Compose
 
+## 配置说明
+
+### 基础配置
+- 配置文件位置：`./config/push_config.json`
+- Redis 数据持久化：数据存储在 Docker volume 中
+- 容器自动重启：服务配置了自动重启策略
+
+### Redis配置
+支持两种Redis连接方式：
+
+1. 使用内置Redis（默认）：
+```bash
+docker-compose up -d
+```
+
+2. 使用外部Redis：
+```bash
+# 创建.env文件并配置Redis连接信息
+cat > .env << EOF
+REDIS_HOST=your-redis-host
+REDIS_PORT=6379
+REDIS_PASSWORD=your-redis-password  # 可选
+REDIS_DB=0                         # 可选，默认0
+REDIS_SSL=false                    # 可选，默认false
+EOF
+
+# 仅启动StarBot服务（不包含Redis）
+docker-compose --profile starbot up -d
+```
+
 ## 从源码构建
 
 1. 创建配置目录和文件：
@@ -32,9 +62,17 @@ mkdir -p config
 创建 .env 文件并填入以下内容：
 
 ```env
+# B站账号配置
 BILIBILI_SESSDATA=你的sessdata
 BILIBILI_BILI_JCT=你的bili_jct
 BILIBILI_BUVID3=你的buvid3
+
+# Redis配置（可选，使用外部Redis时需要）
+# REDIS_HOST=your-redis-host
+# REDIS_PORT=6379
+# REDIS_PASSWORD=your-redis-password
+# REDIS_DB=0
+# REDIS_SSL=false
 ```
 
 4. 启动服务：
@@ -42,12 +80,6 @@ BILIBILI_BUVID3=你的buvid3
 ```bash
 docker-compose up -d
 ```
-
-## 配置说明
-
-- 配置文件位置：`./config/push_config.json`
-- Redis 数据持久化：数据存储在 Docker volume 中
-- 容器自动重启：服务配置了自动重启策略
 
 ## 版本说明
 
