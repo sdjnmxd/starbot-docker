@@ -1,0 +1,140 @@
+name: Docker Image CI/CD
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  schedule:
+    - cron: '0 0 * * *'  # 每天UTC 00:00运行
+  repository_dispatch:
+    types: [upstream_release]  # 监听上游仓库的release
+  workflow_dispatch:  # 支持手动触发
+
+env:
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  IMAGE_NAME: starbot
+  UPSTREAM_REPO: Starlwr/StarBot
+
+jobs:
+  check-update:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    outputs:
+      needs_update: ${{ steps.check.outputs.needs_update }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - name: Check for updates
+        id: check
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          MAX_RETRIES=3
+          RETRY_COUNT=0
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if LATEST_VERSION=$(curl -sf https://pypi.org/pypi/starbot-bilibili/json | jq -r '.info.version'); then
+              if CURRENT_VERSION=$(curl -sf "https://hub.docker.com/v2/repositories/${DOCKERHUB_USERNAME}/starbot/tags/" | jq -r '.results[0].name'); then
+                if [ "$LATEST_VERSION" != "$CURRENT_VERSION" ]; then
+                  echo "needs_update=true" >> $GITHUB_OUTPUT
+                  echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+                else
+                  echo "needs_update=false" >> $GITHUB_OUTPUT
+                  echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+                fi
+                break
+              fi
+            fi
+            
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              sleep 10
+            fi
+          done
+          
+          if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+            echo "::error::Failed to check for updates after $MAX_RETRIES attempts"
+            exit 1
+          fi
+
+  watch-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Watch upstream releases
+        if: github.event_name == 'schedule'
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          MAX_RETRIES=3
+          RETRY_COUNT=0
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if LATEST_RELEASE=$(curl -sf "https://api.github.com/repos/${{ env.UPSTREAM_REPO }}/releases/latest" | jq -r '.tag_name'); then
+              if CURRENT_RELEASE=$(curl -sf "https://api.github.com/repos/${{ github.repository }}/dispatches" \
+                -H "Accept: application/vnd.github.everest-preview+json" \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                | jq -r '.tag_name'); then
+                
+                if [ "$LATEST_RELEASE" != "$CURRENT_RELEASE" ]; then
+                  curl -X POST "https://api.github.com/repos/${{ github.repository }}/dispatches" \
+                    -H "Accept: application/vnd.github.everest-preview+json" \
+                    -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                    -d "{\"event_type\": \"upstream_release\", \"client_payload\": {\"version\": \"$LATEST_RELEASE\"}}"
+                fi
+                break
+              fi
+            fi
+            
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              sleep 10
+            fi
+          done
+
+  build-and-push:
+    needs: [check-update]
+    if: |
+      (needs.check-update.outputs.needs_update == 'true') ||
+      (github.event_name == 'repository_dispatch' && github.event.action == 'upstream_release')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+            echo "version=${{ github.event.client_payload.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ needs.check-update.outputs.version }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Update README
+        if: success()
+        run: |
+          echo "Docker image updated to version ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
