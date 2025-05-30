@@ -39,6 +39,20 @@ def env_to_config():
     return config_dict
 
 def main():
+    # 设置B站登录凭据
+    sessdata = os.getenv('SESSDATA')
+    bili_jct = os.getenv('BILI_JCT')
+    buvid3 = os.getenv('BUVID3')
+    
+    if not all([sessdata, bili_jct, buvid3]):
+        raise ValueError("缺少必要的B站登录凭据，请设置 SESSDATA, BILI_JCT, BUVID3 环境变量")
+    
+    config.set_credential(
+        sessdata=sessdata,
+        bili_jct=bili_jct,
+        buvid3=buvid3
+    )
+
     # 从环境变量生成配置
     config_dict = env_to_config()
     
