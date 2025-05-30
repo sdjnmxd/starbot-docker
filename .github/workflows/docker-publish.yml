@@ -1,13 +1,17 @@
 name: Docker Image CI/CD
 
 on:
-  push:
-    branches: [ "main", "master" ]
   schedule:
     - cron: '0 0 * * *'  # 每天UTC 00:00运行
   repository_dispatch:
     types: [upstream_release]  # 监听上游仓库的release
   workflow_dispatch:  # 支持手动触发
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
 
 env:
   IMAGE_NAME: starbot
@@ -20,6 +24,10 @@ jobs:
     outputs:
       needs_update: ${{ steps.check.outputs.needs_update }}
       version: ${{ steps.check.outputs.version }}
+      current_version: ${{ steps.check.outputs.current_version }}
+      release_date: ${{ steps.check.outputs.release_date }}
+      release_url: ${{ steps.check.outputs.release_url }}
+      changelog: ${{ steps.check.outputs.changelog }}
     steps:
       - name: Check for updates
         id: check
@@ -30,14 +38,26 @@ jobs:
           RETRY_COUNT=0
           
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if LATEST_VERSION=$(curl -sf https://pypi.org/pypi/starbot-bilibili/json | jq -r '.info.version'); then
+            if PYPI_INFO=$(curl -sf https://pypi.org/pypi/starbot-bilibili/json); then
+              LATEST_VERSION=$(echo "$PYPI_INFO" | jq -r '.info.version')
+              RELEASE_DATE=$(echo "$PYPI_INFO" | jq -r '.releases[$LATEST_VERSION][0].upload_time')
+              RELEASE_URL="https://pypi.org/project/starbot-bilibili/$LATEST_VERSION/"
+              CHANGELOG=$(echo "$PYPI_INFO" | jq -r '.info.description')
+              
               if CURRENT_VERSION=$(curl -sf "https://hub.docker.com/v2/repositories/${{ vars.DOCKERHUB_USERNAME }}/starbot/tags/" | jq -r '.results[0].name'); then
                 if [ "$LATEST_VERSION" != "$CURRENT_VERSION" ]; then
                   echo "needs_update=true" >> $GITHUB_OUTPUT
                   echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+                  echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+                  echo "release_date=$RELEASE_DATE" >> $GITHUB_OUTPUT
+                  echo "release_url=$RELEASE_URL" >> $GITHUB_OUTPUT
+                  echo "changelog<<EOF" >> $GITHUB_OUTPUT
+                  echo "$CHANGELOG" >> $GITHUB_OUTPUT
+                  echo "EOF" >> $GITHUB_OUTPUT
                 else
                   echo "needs_update=false" >> $GITHUB_OUTPUT
                   echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+                  echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
                 fi
                 break
               fi
@@ -45,6 +65,7 @@ jobs:
             
             RETRY_COUNT=$((RETRY_COUNT + 1))
             if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              echo "::warning::Attempt $RETRY_COUNT failed, retrying in 10 seconds..."
               sleep 10
             fi
           done
@@ -54,79 +75,77 @@ jobs:
             exit 1
           fi
 
-  watch-release:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Watch upstream releases
-        if: github.event_name == 'schedule'
-        continue-on-error: true
-        timeout-minutes: 5
-        run: |
-          MAX_RETRIES=3
-          RETRY_COUNT=0
-          
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if LATEST_RELEASE=$(curl -sf "https://api.github.com/repos/${{ env.UPSTREAM_REPO }}/releases/latest"); then
-              LATEST_TAG=$(echo $LATEST_RELEASE | jq -r '.tag_name')
-              if [ "$LATEST_TAG" != "null" ]; then
-                echo "version=$LATEST_TAG" >> $GITHUB_OUTPUT
-                if [ -n "$LATEST_TAG" ]; then
-                  echo "Found new release: $LATEST_TAG"
-                  exit 0
-                fi
-              fi
-            fi
-            
-            RETRY_COUNT=$((RETRY_COUNT + 1))
-            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-              sleep 10
-            fi
-          done
-
   build-and-push:
     needs: [check-update]
     if: |
-      (needs.check-update.outputs.needs_update == 'true') ||
-      (github.event_name == 'repository_dispatch' && github.event.action == 'upstream_release')
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'repository_dispatch' ||
+      needs.check-update.outputs.needs_update == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Get version
+      - name: Get version info
         id: version
         run: |
-          if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
-            echo "version=${{ github.event.client_payload.version }}" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            CURRENT_VERSION=$(grep 'starbot-bilibili==' requirements.txt | cut -d'=' -f3)
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           else
             echo "version=${{ needs.check-update.outputs.version }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+      - name: Update version in files
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          
+          sed -i "s/starbot-bilibili==.*/starbot-bilibili==$VERSION/" requirements.txt
+          
+          sed -i "s/StarBot Core: .*/StarBot Core: $VERSION/" README.md
+          
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add requirements.txt README.md
+          git commit -m "chore: update StarBot from ${{ needs.check-update.outputs.current_version }} to $VERSION"
+          git push
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push
-        uses: docker/build-push-action@v4
+        id: build
+        uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
           push: true
+          build-args: |
+            STARBOT_VERSION=${{ steps.version.outputs.version }}
+            BUILDKIT_INLINE_CACHE=1
           tags: |
             ${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
             ${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
+
+      - name: Generate artifact attestation
+        if: success()
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
 
       - name: Update Docker Hub Description
         if: success()
@@ -138,6 +157,29 @@ jobs:
           readme-filepath: ./README.md
           short-description: ${{ github.event.repository.description }}
           enable-url-completion: true
+
+      - name: Create Release
+        if: success() && github.event_name != 'workflow_dispatch'
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: "v${{ steps.version.outputs.version }}"
+          name: "StarBot ${{ steps.version.outputs.version }}"
+          body: |
+            自动更新 StarBot 版本
+            
+            ## 版本信息
+            
+            - 版本号: ${{ needs.check-update.outputs.current_version }} -> ${{ needs.check-update.outputs.version }}
+            - 发布时间: ${{ needs.check-update.outputs.release_date }}
+            - PyPI 链接: ${{ needs.check-update.outputs.release_url }}
+            
+            ## 更新说明
+            
+            ${{ needs.check-update.outputs.changelog }}
+          draft: false
+          prerelease: false
 
       - name: Update README
         if: success()
