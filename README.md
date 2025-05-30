@@ -6,7 +6,7 @@
 
 ```bash
 # 拉取镜像
-docker pull ${DOCKERHUB_USERNAME}/starbot:latest
+docker pull sdjnmxd/starbot:latest
 
 # 或者直接使用docker-compose
 docker-compose pull
@@ -54,7 +54,7 @@ docker-compose up -d
 - `latest`: 最新版本
 - `x.y.z`: 特定版本号
 
-镜像会通过GitHub Actions自动构建并推送到Docker Hub，每天检查更新。当starbot-bilibili包发布新版本时，会自动构建新的Docker镜像。
+镜像会通过GitHub Actions自动构建并推送到[Docker Hub](https://hub.docker.com/r/sdjnmxd/starbot)，每天检查更新。当starbot-bilibili包发布新版本时，会自动构建新的Docker镜像。
 
 ## 支持的平台
 

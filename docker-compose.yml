@@ -2,7 +2,7 @@ version: '3'
 
 services:
   starbot:
-    build: .
+    image: sdjnmxd/starbot:latest
     volumes:
       - ./config:/app/config
     depends_on:
