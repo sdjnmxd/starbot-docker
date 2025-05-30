@@ -1,5 +1,12 @@
 # StarBot Docker 部署指南
 
+[![Docker Pulls](https://img.shields.io/docker/pulls/sdjnmxd/starbot.svg)](https://hub.docker.com/r/sdjnmxd/starbot)
+[![Docker Stars](https://img.shields.io/docker/stars/sdjnmxd/starbot.svg)](https://hub.docker.com/r/sdjnmxd/starbot)
+[![Docker Image CI/CD](https://github.com/sdjnmxd/starbot-docker/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/sdjnmxd/starbot-docker/actions/workflows/docker-publish.yml)
+[![GitHub Stars](https://img.shields.io/github/stars/sdjnmxd/starbot-docker.svg?logo=github)](https://github.com/sdjnmxd/starbot-docker)
+[![GitHub License](https://img.shields.io/github/license/sdjnmxd/starbot-docker)](https://github.com/sdjnmxd/starbot-docker/blob/main/LICENSE)
+[![GitHub last commit](https://img.shields.io/github/last-commit/sdjnmxd/starbot-docker)](https://github.com/sdjnmxd/starbot-docker/commits/main)
+
 这是 [StarBot](https://github.com/Starlwr/StarBot) 的 Docker 部署配置，提供了一个开箱即用的容器化部署方案。
 
 ## 快速开始
@@ -111,4 +118,31 @@ docker-compose down
 # 更新版本
 docker-compose pull
 docker-compose up -d
-``` 
+```
+
+## 问题反馈
+
+如果您在使用过程中遇到任何问题或有改进建议，欢迎通过以下方式反馈：
+
+1. [GitHub Issues](https://github.com/sdjnmxd/starbot-docker/issues)：
+   - 部署相关问题
+   - Docker镜像问题
+   - 功能建议
+   - 文档改进
+
+2. [StarBot 官方仓库](https://github.com/Starlwr/StarBot/issues)：
+   - StarBot本身的功能问题
+   - 推送功能异常
+   - 其他Bot相关问题
+
+提交问题时，请尽可能提供：
+- 详细的问题描述
+- 相关的错误日志
+- 复现步骤
+- 运行环境信息
+
+## License
+
+本项目采用 MIT License 开源，详细信息请参阅 [LICENSE](LICENSE) 文件。
+
+StarBot Docker 是一个独立项目，仅提供容器化部署方案。StarBot 的所有权利归其原作者所有，详见 [StarBot 官方仓库](https://github.com/Starlwr/StarBot)。 
