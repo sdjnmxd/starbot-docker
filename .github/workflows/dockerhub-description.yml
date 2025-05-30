@@ -21,7 +21,7 @@ jobs:
       with:
         username: ${{ vars.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
-        repository: ${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
+        repository: ${{ vars.DOCKERHUB_USERNAME }}/starbot
         readme-filepath: ./README.md
         short-description: ${{ github.event.repository.description }}
         enable-url-completion: true
