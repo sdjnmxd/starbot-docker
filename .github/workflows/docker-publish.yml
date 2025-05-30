@@ -40,7 +40,7 @@ jobs:
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
             if PYPI_INFO=$(curl -sf https://pypi.org/pypi/starbot-bilibili/json); then
               LATEST_VERSION=$(echo "$PYPI_INFO" | jq -r '.info.version')
-              RELEASE_DATE=$(echo "$PYPI_INFO" | jq -r '.releases[$LATEST_VERSION][0].upload_time')
+              RELEASE_DATE=$(echo "$PYPI_INFO" | jq -r --arg version "$LATEST_VERSION" '.releases[$version][0].upload_time')
               RELEASE_URL="https://pypi.org/project/starbot-bilibili/$LATEST_VERSION/"
               CHANGELOG=$(echo "$PYPI_INFO" | jq -r '.info.description')
               
