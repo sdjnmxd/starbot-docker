@@ -10,8 +10,6 @@ on:
 permissions:
   contents: write
   packages: write
-  id-token: write
-  attestations: write
 
 env:
   IMAGE_NAME: starbot
@@ -142,7 +140,6 @@ jobs:
       - name: Build and push
         id: build
         uses: docker/build-push-action@v6
-        if: steps.version.outputs.version != ''
         with:
           context: .
           push: true
@@ -154,16 +151,6 @@ jobs:
             ${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          provenance: true
-          sbom: true
-
-      - name: Generate artifact attestation
-        if: success()
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-name: ${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.build.outputs.digest }}
-          push-to-registry: true
 
       - name: Update Docker Hub Description
         if: success()
