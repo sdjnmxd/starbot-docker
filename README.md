@@ -1,9 +1,11 @@
 # StarBot Docker 部署指南
 
-| Docker | GitHub |
-|--------|--------|
-| [![Docker Pulls](https://img.shields.io/docker/pulls/sdjnmxd/starbot.svg)](https://hub.docker.com/r/sdjnmxd/starbot) [![Docker Stars](https://img.shields.io/docker/stars/sdjnmxd/starbot.svg)](https://hub.docker.com/r/sdjnmxd/starbot) | [![GitHub Stars](https://img.shields.io/github/stars/sdjnmxd/starbot-docker.svg?logo=github)](https://github.com/sdjnmxd/starbot-docker) [![GitHub License](https://img.shields.io/github/license/sdjnmxd/starbot-docker)](https://github.com/sdjnmxd/starbot-docker/blob/main/LICENSE) |
-| [![Docker Image CI/CD](https://github.com/sdjnmxd/starbot-docker/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/sdjnmxd/starbot-docker/actions/workflows/docker-publish.yml) | [![GitHub last commit](https://img.shields.io/github/last-commit/sdjnmxd/starbot-docker)](https://github.com/sdjnmxd/starbot-docker/commits/main) |
+[![Docker Pulls](https://img.shields.io/docker/pulls/sdjnmxd/starbot.svg)](https://hub.docker.com/r/sdjnmxd/starbot)  
+[![Docker Stars](https://img.shields.io/docker/stars/sdjnmxd/starbot.svg)](https://hub.docker.com/r/sdjnmxd/starbot)  
+[![Docker Image CI/CD](https://github.com/sdjnmxd/starbot-docker/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/sdjnmxd/starbot-docker/actions/workflows/docker-publish.yml)  
+[![GitHub Stars](https://img.shields.io/github/stars/sdjnmxd/starbot-docker.svg?logo=github)](https://github.com/sdjnmxd/starbot-docker)  
+[![GitHub License](https://img.shields.io/github/license/sdjnmxd/starbot-docker)](https://github.com/sdjnmxd/starbot-docker/blob/main/LICENSE)  
+[![GitHub last commit](https://img.shields.io/github/last-commit/sdjnmxd/starbot-docker)](https://github.com/sdjnmxd/starbot-docker/commits/main)
 
 这是 [StarBot](https://github.com/Starlwr/StarBot) 的 Docker 部署配置，提供了一个开箱即用的容器化部署方案。
 
