@@ -12,6 +12,10 @@ RUN apt-get update && apt-get install -y \
     procps \
     redis-tools \
     bc \
+    libfreetype6-dev \
+    libfontconfig1-dev \
+    fonts-dejavu-core \
+    fontconfig \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制项目文件
