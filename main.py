@@ -4,7 +4,6 @@ from starbot.core.datasource import JsonDataSource
 from starbot.utils import config
 
 def get_env_value(value_str, default_value):
-    """根据默认值类型转换环境变量值"""
     if value_str is None:
         return default_value
         
@@ -23,14 +22,10 @@ def get_env_value(value_str, default_value):
     return value_str
 
 def env_to_config():
-    """从环境变量生成配置字典"""
-    # 获取默认配置
     default_config = config.DEFAULT_CONFIG
     
-    # 生成配置字典
     config_dict = {}
     
-    # 遍历所有环境变量
     for env_key, env_value in os.environ.items():
         # 如果环境变量名与配置键匹配，则使用该值
         if env_key in default_config:
@@ -39,7 +34,20 @@ def env_to_config():
     return config_dict
 
 def main():
-    # 设置B站登录凭据
+    # 显示项目信息
+    print("=" * 60)
+    print("🤖 StarBot Docker 容器化版本")
+    print("=" * 60)
+    print("📦 项目仓库: https://github.com/sdjnmxd/starbot-docker")
+    print("🐛 问题反馈: https://github.com/sdjnmxd/starbot-docker/issues")
+    print("📚 使用文档: https://github.com/sdjnmxd/starbot-docker#readme")
+    print("")
+    print("ℹ️  这是 StarBot 的 Docker 容器化部署版本")
+    print("   如果遇到部署、容器或配置相关问题，请优先到上述仓库提交 Issue")
+    print("   只有 StarBot 核心功能问题才需要到原项目反馈")
+    print("=" * 60)
+    print("")
+    
     sessdata = os.getenv('SESSDATA')
     bili_jct = os.getenv('BILI_JCT')
     buvid3 = os.getenv('BUVID3')
@@ -53,16 +61,16 @@ def main():
         buvid3=buvid3
     )
 
-    # 从环境变量生成配置
     config_dict = env_to_config()
     
-    # 应用配置
     if config_dict:
         config.use(**config_dict)
 
-    # 初始化数据源和机器人
     datasource = JsonDataSource("/app/config/push_config.json")
     bot = StarBot(datasource)
+    
+    print("🚀 StarBot 启动中...")
+    print("")
     
     # 启动机器人
     bot.run()
