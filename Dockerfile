@@ -1,6 +1,5 @@
 FROM python:3.9-slim
 
-# 镜像元数据
 LABEL maintainer="sdjnmxd <sdjnmxd@users.noreply.github.com>"
 LABEL org.opencontainers.image.title="StarBot Docker"
 LABEL org.opencontainers.image.description="StarBot 的 Docker 容器化部署版本 - B站动态推送机器人"
@@ -27,17 +26,13 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 复制项目代码
 COPY . .
 
-# 复制并设置启动脚本权限
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
+RUN chmod +x /app/start.sh
 
-# 设置环境变量
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONFAULTHANDLER=1
 ENV PYTHONHASHSEED=random
 
 # 启动命令
-CMD ["/start.sh"]
+CMD ["/app/start.sh"]
