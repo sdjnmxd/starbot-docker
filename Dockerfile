@@ -21,18 +21,23 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     libfreetype6-dev \
     libfontconfig1-dev \
-    fonts-dejavu-core \
-    fontconfig \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
+# 复制项目代码
 COPY . .
 
+# 复制并设置启动脚本权限
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
+# 设置环境变量
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONFAULTHANDLER=1
 ENV PYTHONHASHSEED=random
 
-CMD ["python", "main.py"]
+# 启动命令
+CMD ["/start.sh"]

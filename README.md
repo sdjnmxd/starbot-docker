@@ -29,6 +29,29 @@ StarBot 的主要功能配置通过 `push_config.json` 文件管理：
 - 位置：`./config/push_config.json`
 - 获取方式：使用 [StarBot 官方配置工具](https://bot.starlwr.com) 生成
 
+### 自定义字体配置
+如果你需要使用自定义字体（如中文字体）：
+
+1. 创建字体目录：
+```bash
+mkdir -p resource
+```
+
+2. 将你的字体文件（如 `normal.ttf`、`bold.ttf`）放入 `resource` 目录
+
+3. 在 StarBot 配置中指定字体路径：
+```json
+{
+  "PAINTER_NORMAL_FONT": "你的字体文件名.ttf",
+  "PAINTER_BOLD_FONT": "你的粗体字体文件名.ttf"
+}
+```
+
+注意：
+- 字体文件会在容器启动时自动复制到 StarBot 内部资源目录
+- 修改字体文件后重启容器即可生效，无需重新构建镜像
+- 容器启动时会显示字体文件复制状态
+
 ### 环境变量
 本项目支持完整的环境变量配置，所有 StarBot 的配置项都可以通过环境变量进行设置。环境变量名称与 StarBot 的配置键名保持一致，无需额外映射。
 
@@ -55,14 +78,18 @@ REDIS_PORT=6379
 
 1. 准备配置文件目录：
 ```bash
-mkdir -p config
+mkdir -p config resource
 ```
 
 2. 配置 StarBot：
    - 使用官方配置工具生成 `push_config.json`
    - 将文件保存到 `config` 目录
 
-3. 配置环境变量：
+3. （可选）添加自定义字体：
+   - 将字体文件（如 `*.ttf`）放入 `resource` 目录
+   - 在配置中更新字体文件名
+
+4. 配置环境变量：
 ```bash
 # 创建环境变量文件
 cat > .env << 'EOF'
@@ -81,7 +108,7 @@ REDIS_PORT=6379
 EOF
 ```
 
-4. 启动服务：
+5. 启动服务：
 ```bash
 docker-compose up -d
 ```
