@@ -4,30 +4,82 @@
 
 这是 [StarBot](https://github.com/Starlwr/StarBot) 的 Docker 部署配置，提供了一个开箱即用的容器化部署方案。
 
+## 运行要求
+
+在开始部署之前，你需要准备：
+
+1. **B站账号凭据**
+   - 从B站网页版Cookie中获取以下信息：
+     - SESSDATA
+     - BILI_JCT
+     - BUVID3
+   > 详细获取方法请参考 [StarBot 官方文档](https://bot.starlwr.com/depoly/document) 中的 "六、启动 StarBot -> 2.获取登录 Cookie" 章节
+
+2. **Mirai 实例**
+   - 需要一个运行中的 Mirai 实例
+   - 👉 推荐使用 [overflow-docker](https://github.com/sdjnmxd/overflow-docker)，这是 [Overflow](https://github.com/MrXiaoM/Overflow) 的开箱即用容器化方案
+   - 这是一个开箱即用的 Mirai + Overflow 部署方案，可以让你在使用 Onebot 实现的同时保持 Mirai 接口兼容性
+   - Overflow 作为 Mirai 到 Onebot 的桥接器，让你可以无缝使用 Mirai 插件
+
+3. **Redis 服务**
+   - StarBot 依赖 Redis 进行直播相关的数据存储
+   - 默认已集成在 docker-compose 配置中
+   - 如需使用外部 Redis，可在环境变量中配置
+
+4. **StarBot 配置文件**
+   - 使用 [StarBot 官方配置工具](https://bot.starlwr.com) 生成
+   - 文件名：`push_config.json`
+
 ## 快速开始
 
-从 Docker Hub 拉取镜像并运行：
-
+1. 创建项目目录并下载配置文件：
 ```bash
-# 方式一：直接使用 docker-compose（推荐）
-docker-compose pull
-docker-compose up -d
+# 创建目录
+mkdir starbot && cd starbot
 
-# 方式二：手动拉取镜像
-docker pull sdjnmxd/starbot:latest
+# 下载配置文件
+curl -O https://raw.githubusercontent.com/sdjnmxd/starbot-docker/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/sdjnmxd/starbot-docker/main/env.example
+mkdir -p config
 ```
 
-## 环境要求
+2. 配置必要的环境变量：
+```bash
+# 复制环境变量示例文件
+cp env.example .env
 
-- Docker
-- Docker Compose
+# 编辑 .env 文件，填入你的配置
+vim .env  # 或使用其他编辑器
+```
 
-## 配置指南
+环境变量说明：
+- B站账号凭据（必需）：
+  - SESSDATA
+  - BILI_JCT
+  - BUVID3
+- Mirai HTTP API 连接信息（必需）：
+  - MIRAI_HOST：mirai服务地址
+  - MIRAI_PORT：mirai服务端口
+- Redis 连接信息（可选，默认使用内置 Redis）：
+  - REDIS_HOST：redis服务地址
+  - REDIS_PORT：redis服务端口
 
-### 配置文件
-StarBot 的主要功能配置通过 `push_config.json` 文件管理：
-- 位置：`./config/push_config.json`
-- 获取方式：使用 [StarBot 官方配置工具](https://bot.starlwr.com) 生成
+3. 配置 StarBot：
+   - 使用 [StarBot 配置工具](https://bot.starlwr.com) 生成 `push_config.json`
+   - 将文件保存到 `config` 目录
+
+4. 启动服务：
+```bash
+docker compose up -d
+```
+
+服务启动后，你可以：
+- 查看日志：`docker compose logs -f`
+- 停止服务：`docker compose down`
+- 重启服务：`docker compose restart`
+- 更新版本：`docker compose pull && docker compose up -d`
+
+## 高级配置
 
 ### 自定义字体配置
 如果你需要使用自定义字体（如中文字体）：
@@ -52,94 +104,21 @@ mkdir -p resource
 - 修改字体文件后重启容器即可生效，无需重新构建镜像
 - 容器启动时会显示字体文件复制状态
 
-### 环境变量
+### 其他环境变量
 本项目支持完整的环境变量配置，所有 StarBot 的配置项都可以通过环境变量进行设置。环境变量名称与 StarBot 的配置键名保持一致，无需额外映射。
 
-必需的环境变量如下：
+其他可选配置项请参考 [StarBot 官方文档](https://bot.starlwr.com/depoly/document) 中的 "七、高级配置" 章节。
 
-```env
-# B站账号凭据
-SESSDATA=你的B站SESSDATA
-BILI_JCT=你的B站BILI_JCT
-BUVID3=你的B站BUVID3
+## 版本和更新
 
-# Mirai HTTP API 连接信息
-MIRAI_HOST=localhost
-MIRAI_PORT=7827
+- 镜像标签：
+  - `latest`: 最新版本，随 StarBot 更新自动构建
+  - `x.y.z`: 特定版本号，对应 StarBot 发布版本
 
-# Redis 连接信息
-REDIS_HOST=localhost
-REDIS_PORT=6379
-```
-
-其他可选配置项请参考 [StarBot 官方文档 - 高级配置](https://bot.starlwr.com/depoly/document)。
-
-## 部署流程
-
-1. 准备配置文件目录：
-```bash
-mkdir -p config resource
-```
-
-2. 配置 StarBot：
-   - 使用官方配置工具生成 `push_config.json`
-   - 将文件保存到 `config` 目录
-
-3. （可选）添加自定义字体：
-   - 将字体文件（如 `*.ttf`）放入 `resource` 目录
-   - 在配置中更新字体文件名
-
-4. 配置环境变量：
-```bash
-# 创建环境变量文件
-cat > .env << 'EOF'
-# B站账号凭据
-SESSDATA=你的B站SESSDATA
-BILI_JCT=你的B站BILI_JCT
-BUVID3=你的B站BUVID3
-
-# Mirai HTTP API 连接信息
-MIRAI_HOST=localhost
-MIRAI_PORT=7827
-
-# Redis 连接信息
-REDIS_HOST=localhost
-REDIS_PORT=6379
-EOF
-```
-
-5. 启动服务：
-```bash
-docker-compose up -d
-```
-
-## 版本管理
-
-镜像版本说明：
-- `latest`: 最新版本，随 StarBot 更新自动构建
-- `x.y.z`: 特定版本号，对应 StarBot 发布版本
-
-镜像通过 GitHub Actions 自动构建并推送至 [Docker Hub](https://hub.docker.com/r/sdjnmxd/starbot)：
-- 每日自动检查 StarBot 更新
-- 发现新版本时自动构建并推送镜像
-
-## 支持架构
-
-- linux/amd64
-
-## 常用命令
-
-```bash
-# 查看日志
-docker-compose logs -f starbot
-
-# 停止服务
-docker-compose down
-
-# 更新版本
-docker-compose pull
-docker-compose up -d
-```
+- 自动更新：
+  - 通过 GitHub Actions 自动构建并推送至 [Docker Hub](https://hub.docker.com/r/sdjnmxd/starbot)
+  - 每日自动检查 StarBot 更新
+  - 发现新版本时自动构建并推送镜像
 
 ## 问题反馈
 

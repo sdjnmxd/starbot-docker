@@ -7,6 +7,10 @@ on:
     types: [upstream_release]  # 监听上游仓库的release
   workflow_dispatch:
     inputs:
+      starbot_version:
+        description: 'StarBot版本号（可选，默认使用最新版本）'
+        required: false
+        type: string
       create_release:
         description: '是否创建 Release'
         type: boolean
@@ -19,21 +23,22 @@ on:
         required: true
 
 permissions:
-  contents: write
-  packages: write
+  contents: write  # 用于更新 README 和创建 release
+  packages: write  # 用于推送 Docker 镜像
 
 env:
   IMAGE_NAME: starbot
   UPSTREAM_REPO: Starlwr/StarBot
+  DOCKER_HUB_REPO: ${{ vars.DOCKERHUB_USERNAME }}/starbot
 
 jobs:
-  check-update:
+  check-versions:
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     outputs:
       needs_update: ${{ steps.check.outputs.needs_update }}
-      version: ${{ steps.check.outputs.version }}
-      current_version: ${{ steps.check.outputs.current_version }}
+      starbot_version: ${{ steps.check.outputs.starbot_version }}
+      current_starbot_version: ${{ steps.check.outputs.current_starbot_version }}
       release_date: ${{ steps.check.outputs.release_date }}
       release_url: ${{ steps.check.outputs.release_url }}
       changelog: ${{ steps.check.outputs.changelog }}
@@ -41,60 +46,75 @@ jobs:
       - name: Check for updates
         id: check
         run: |
-          # 获取 PyPI 最新版本
-          if ! PYPI_INFO=$(curl -sf https://pypi.org/pypi/starbot-bilibili/json); then
-            echo "::error::Failed to fetch PyPI information"
-            exit 1
+          # 如果指定了版本，则使用指定版本
+          if [ -n "${{ github.event.inputs.starbot_version }}" ]; then
+            STARBOT_VERSION="${{ github.event.inputs.starbot_version }}"
+            echo "使用指定的 StarBot 版本: ${STARBOT_VERSION}"
+          else
+            echo "获取 StarBot 最新版本..."
+            # 获取 PyPI 最新版本
+            if ! PYPI_INFO=$(curl -sf https://pypi.org/pypi/starbot-bilibili/json); then
+              echo "::error::无法获取 PyPI 信息"
+              exit 1
+            fi
+            
+            STARBOT_VERSION=$(echo "$PYPI_INFO" | jq -r '.info.version')
+            if [ -z "$STARBOT_VERSION" ] || [ "$STARBOT_VERSION" = "null" ]; then
+              echo "::error::无法获取 StarBot 最新版本"
+              exit 1
+            fi
+            echo "获取到 StarBot 最新版本: ${STARBOT_VERSION}"
           fi
           
-          LATEST_VERSION=$(echo "$PYPI_INFO" | jq -r '.info.version')
-          RELEASE_DATE=$(echo "$PYPI_INFO" | jq -r --arg version "$LATEST_VERSION" '.releases[$version][0].upload_time')
-          
-          # 获取 GitHub Release 信息
+          # 获取 Release 信息
           if ! GITHUB_RELEASE=$(curl -sf "https://api.github.com/repos/${{ env.UPSTREAM_REPO }}/releases/latest"); then
-            echo "::warning::Failed to fetch GitHub Release information"
-            RELEASE_URL="https://pypi.org/project/starbot-bilibili/$LATEST_VERSION/"
+            echo "::warning::无法获取 GitHub Release 信息"
+            RELEASE_URL="https://pypi.org/project/starbot-bilibili/${STARBOT_VERSION}/"
             CHANGELOG="未能获取更新说明，请查看 PyPI 发布页面了解详情。"
+            RELEASE_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           else
             RELEASE_URL=$(echo "$GITHUB_RELEASE" | jq -r '.html_url')
             CHANGELOG=$(echo "$GITHUB_RELEASE" | jq -r '.body')
+            RELEASE_DATE=$(echo "$GITHUB_RELEASE" | jq -r '.published_at')
           fi
           
-          # 获取 Docker Hub 当前版本（跳过 latest 标签）
-          if ! CURRENT_VERSION=$(curl -sf "https://hub.docker.com/v2/repositories/${{ vars.DOCKERHUB_USERNAME }}/starbot/tags/" | \
+          # 获取 Docker Hub 当前版本
+          if ! CURRENT_VERSION=$(curl -sf "https://hub.docker.com/v2/repositories/${{ env.DOCKER_HUB_REPO }}/tags/" | \
             jq -r '.results[] | select(.name != "latest") | .name' | head -n1); then
-            echo "::warning::Failed to fetch Docker Hub version, assuming first build"
+            echo "::warning::无法获取 Docker Hub 版本，假设首次构建"
             CURRENT_VERSION="0.0.0"
           fi
           
           # 如果没有找到版本号（可能是首次构建）
           if [ -z "$CURRENT_VERSION" ] || [ "$CURRENT_VERSION" == "null" ]; then
-            echo "No version found in Docker Hub, assuming first build"
+            echo "Docker Hub 中未找到版本号，假设首次构建"
             CURRENT_VERSION="0.0.0"
           fi
           
           # 比较版本
-          if [ "$LATEST_VERSION" != "$CURRENT_VERSION" ]; then
-            echo "Update needed: $CURRENT_VERSION -> $LATEST_VERSION"
+          if [ "$STARBOT_VERSION" != "$CURRENT_VERSION" ]; then
+            echo "需要更新: $CURRENT_VERSION -> $STARBOT_VERSION"
             echo "needs_update=true" >> $GITHUB_OUTPUT
           else
-            echo "No update needed, current version is latest: $CURRENT_VERSION"
+            echo "无需更新，当前版本已是最新: $CURRENT_VERSION"
             echo "needs_update=false" >> $GITHUB_OUTPUT
           fi
           
           # 输出版本信息
-          echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
-          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          echo "release_date=$RELEASE_DATE" >> $GITHUB_OUTPUT
-          echo "release_url=$RELEASE_URL" >> $GITHUB_OUTPUT
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "starbot_version=${STARBOT_VERSION}"
+            echo "current_starbot_version=${CURRENT_VERSION}"
+            echo "release_date=${RELEASE_DATE}"
+            echo "release_url=${RELEASE_URL}"
+            echo "changelog<<EOF"
+            echo "${CHANGELOG}"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
-  build-and-push:
-    needs: [check-update]
+  build:
+    needs: check-versions
     if: |
-      needs.check-update.outputs.needs_update == 'true' ||
+      needs.check_versions.outputs.needs_update == 'true' ||
       (github.event_name == 'repository_dispatch' && github.event.action == 'upstream_release') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.force_build == 'true')
     runs-on: ubuntu-latest
@@ -103,49 +123,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Get version info
-        id: version
-        run: |
-          # 从 PyPI 获取最新版本
-          echo "Getting latest version from PyPI..."
-          if ! PYPI_INFO=$(curl -sf https://pypi.org/pypi/starbot-bilibili/json); then
-            echo "::error::Failed to fetch PyPI information"
-            exit 1
-          fi
-          
-          VERSION=$(echo "$PYPI_INFO" | jq -r '.info.version')
-          if [ -z "$VERSION" ] || [ "$VERSION" == "null" ]; then
-            echo "::error::Failed to get version from PyPI"
-            exit 1
-          fi
-          
-          echo "Latest version from PyPI: $VERSION"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Debug version info
-        run: |
-          echo "Event name: ${{ github.event_name }}"
-          echo "Version to use: ${{ steps.version.outputs.version }}"
-          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
-            echo "Check-update job outputs:"
-            echo "needs_update: ${{ needs.check-update.outputs.needs_update }}"
-          fi
-
-      - name: Update version in files
-        if: github.event_name != 'workflow_dispatch'
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          
-          sed -i "s/starbot-bilibili==.*/starbot-bilibili==$VERSION/" requirements.txt
-          
-          sed -i "s/StarBot Core: .*/StarBot Core: $VERSION/" README.md
-          
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add requirements.txt README.md
-          git commit -m "chore: update StarBot from ${{ needs.check-update.outputs.current_version }} to $VERSION"
-          git push
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -156,20 +133,37 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Update version in files
+        run: |
+          VERSION="${{ needs.check_versions.outputs.starbot_version }}"
+          
+          # 更新 requirements.txt
+          sed -i "s/starbot-bilibili==.*/starbot-bilibili==$VERSION/" requirements.txt
+          
+          # 更新 README.md
+          sed -i "s/StarBot Core: .*/StarBot Core: $VERSION/" README.md
+          
+          # 提交更改
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add requirements.txt README.md
+          git commit -m "chore: 更新 StarBot 版本从 ${{ needs.check_versions.outputs.current_starbot_version }} 到 $VERSION" || echo "无需提交更改"
+          git push || echo "无需推送更改"
+
       - name: Build and push
-        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           build-args: |
-            STARBOT_VERSION=${{ steps.version.outputs.version }}
+            STARBOT_VERSION=${{ needs.check_versions.outputs.starbot_version }}
             BUILDKIT_INLINE_CACHE=1
           tags: |
-            ${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
-            ${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ${{ env.DOCKER_HUB_REPO }}:latest
+            ${{ env.DOCKER_HUB_REPO }}:${{ needs.check_versions.outputs.starbot_version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
 
       - name: Update Docker Hub Description
         if: success()
@@ -177,7 +171,7 @@ jobs:
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
+          repository: ${{ env.DOCKER_HUB_REPO }}
           readme-filepath: ./README.md
           short-description: ${{ github.event.repository.description }}
           enable-url-completion: true
@@ -193,33 +187,40 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: "v${{ steps.version.outputs.version }}"
-          name: "StarBot ${{ steps.version.outputs.version }}"
+          tag_name: "v${{ needs.check_versions.outputs.starbot_version }}"
+          name: "StarBot ${{ needs.check_versions.outputs.starbot_version }}"
           body: |
             自动更新 StarBot 版本
             
             ## 版本信息
             
-            - 版本号: ${{ needs.check-update.outputs.current_version }} -> ${{ needs.check-update.outputs.version }}
-            - 发布时间: ${{ needs.check-update.outputs.release_date }}
-            - Release 链接: ${{ needs.check-update.outputs.release_url }}
+            - 版本号: ${{ needs.check_versions.outputs.current_starbot_version }} -> ${{ needs.check_versions.outputs.starbot_version }}
+            - 发布时间: ${{ needs.check_versions.outputs.release_date }}
+            - Release 链接: ${{ needs.check_versions.outputs.release_url }}
             
             ## Docker 镜像
             ```bash
             # 最新版本
-            docker pull ${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            docker pull ${{ env.DOCKER_HUB_REPO }}:${{ needs.check_versions.outputs.starbot_version }}
             
             # 或使用 latest 标签
-            docker pull ${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            docker pull ${{ env.DOCKER_HUB_REPO }}:latest
             ```
             
             ## 更新说明
             
-            ${{ needs.check-update.outputs.changelog }}
+            ${{ needs.check_versions.outputs.changelog }}
           draft: false
           prerelease: false
 
-      - name: Update README
+      - name: Update Summary
         if: success()
         run: |
-          echo "Docker image updated to version ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "# 构建完成 ✨"
+            echo "## 版本信息"
+            echo "- StarBot 版本: ${{ needs.check_versions.outputs.starbot_version }}"
+            echo "- Docker 镜像: ${{ env.DOCKER_HUB_REPO }}:${{ needs.check_versions.outputs.starbot_version }}"
+            echo "- 发布时间: ${{ needs.check_versions.outputs.release_date }}"
+            echo "- Release 链接: ${{ needs.check_versions.outputs.release_url }}"
+          } >> $GITHUB_STEP_SUMMARY

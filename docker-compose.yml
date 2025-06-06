@@ -15,9 +15,23 @@ services:
       - MIRAI_HOST=${MIRAI_HOST:-localhost}
       - MIRAI_PORT=${MIRAI_PORT:-7827}
       
-      # Redis配置（必须）
-      - REDIS_HOST=${REDIS_HOST:-localhost}
+      # Redis配置（使用内置Redis）
+      - REDIS_HOST=${REDIS_HOST:-starbot-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
+    restart: unless-stopped
+    depends_on:
+      - starbot-redis
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "1"
+
+  starbot-redis:
+    image: redis:alpine
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
     restart: unless-stopped
     logging:
       driver: "json-file"
