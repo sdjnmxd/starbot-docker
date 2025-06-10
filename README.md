@@ -2,6 +2,12 @@
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/sdjnmxd/starbot.svg)](https://hub.docker.com/r/sdjnmxd/starbot) [![Docker Stars](https://img.shields.io/docker/stars/sdjnmxd/starbot.svg)](https://hub.docker.com/r/sdjnmxd/starbot) [![Docker Image Size](https://img.shields.io/docker/image-size/sdjnmxd/starbot/latest)](https://hub.docker.com/r/sdjnmxd/starbot) [![Docker Image CI/CD](https://github.com/sdjnmxd/starbot-docker/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/sdjnmxd/starbot-docker/actions/workflows/docker-publish.yml) [![GitHub Stars](https://img.shields.io/github/stars/sdjnmxd/starbot-docker.svg?logo=github)](https://github.com/sdjnmxd/starbot-docker) [![GitHub License](https://img.shields.io/github/license/sdjnmxd/starbot-docker)](https://github.com/sdjnmxd/starbot-docker/blob/main/LICENSE) [![GitHub last commit](https://img.shields.io/github/last-commit/sdjnmxd/starbot-docker)](https://github.com/sdjnmxd/starbot-docker/commits/main)
 
+> **重要提示：**
+> 
+> - 当前 StarBot 版本（2.0）基于Python实现，将在2025年6月9日后只进行bug修复
+> - StarBot 3.0版本（基于Java重构）正在开发中，预计2025年6月开始测试
+> - 本Docker镜像将同步跟进这些变更，会在适当的时候完成 3.0 版本的Docker化
+
 这是 [StarBot](https://github.com/Starlwr/StarBot) 的 Docker 部署配置，提供了一个开箱即用的容器化部署方案。
 
 ## 运行要求
